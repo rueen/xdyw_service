@@ -7,9 +7,24 @@
 
 const { query, transaction } = require('../config/database');
 const { encrypt, safeDecrypt } = require('../utils/crypto');
-const { desensitizeRecord } = require('../utils/desensitize');
+const { desensitizeRecord, desensitizeRecordForDoctor } = require('../utils/desensitize');
 const { createError } = require('../middleware/errorHandler');
 const { getDescendantIds } = require('./salespersonService');
+
+/**
+ * 断言当前业务员对该病例拥有操作权限（仅限自己录入的病例）
+ * 超级管理员不受限制；医生不走此函数（由各自逻辑单独校验）
+ * @param {Object} record      - 已查询到的病例记录（需含 salesperson_id 字段）
+ * @param {Object} currentUser - 当前登录用户 { userId, role }
+ * @throws {Error} 403 无权操作
+ */
+function assertOperatePermission(record, currentUser) {
+  const { userId, role } = currentUser;
+  if (role === 'super_admin') return;
+  if (record.salesperson_id !== userId) {
+    throw createError('只能操作自己录入的病例', 403);
+  }
+}
 
 /**
  * 允许的状态流转映射表
@@ -112,8 +127,8 @@ function processRecords(records, currentSalespersonId, role, ownSalespersonIds) 
     /** 超级管理员始终返回完整信息 */
     if (role === 'super_admin') return decrypted;
 
-    /** 医生始终返回完整信息（医生只能看自己被指派的病例，已在查询层过滤） */
-    if (ownSalespersonIds === null) return decrypted;
+    /** 医生：手机号/身份证脱敏，姓名与照片保留（只能看指派给自己的病例，已在查询层过滤） */
+    if (ownSalespersonIds === null) return desensitizeRecordForDoctor(decrypted);
 
     /** 业务员：自己录入的病例返回完整信息，下级录入的返回脱敏信息 */
     if (record.salesperson_id === currentSalespersonId) {
@@ -313,9 +328,13 @@ async function getRecordById(recordId, currentUser) {
     patient_id_card: safeDecrypt(record.patient_id_card),
   };
 
-  /** 脱敏判断：普通业务员查看下级病例时脱敏 */
+  /** 脱敏判断 */
   let finalRecord = decrypted;
-  if (role === 'salesperson' && record.salesperson_id !== userId) {
+  if (userType === 'doctor') {
+    /** 医生：手机号/身份证脱敏，姓名与照片保留 */
+    finalRecord = desensitizeRecordForDoctor(decrypted);
+  } else if (role === 'salesperson' && record.salesperson_id !== userId) {
+    /** 普通业务员查看下级病例：姓名/手机号/身份证脱敏，照片隐藏 */
     finalRecord = desensitizeRecord(decrypted);
   }
 
@@ -538,7 +557,7 @@ async function reviewRecord(recordId, operation, notes, currentUser) {
  * @param {Object} currentUser - 当前登录业务员
  */
 async function markVisited(recordId, currentUser) {
-  const { userId, role } = currentUser;
+  const { userId } = currentUser;
 
   const rows = await query(
     'SELECT id, status, salesperson_id FROM medical_records WHERE id = ? AND deleted_at IS NULL',
@@ -547,13 +566,7 @@ async function markVisited(recordId, currentUser) {
   if (rows.length === 0) throw createError('病例不存在', 404);
   const record = rows[0];
 
-  /** 检查可见权限 */
-  if (role !== 'super_admin') {
-    const descendantIds = await getDescendantIds(userId);
-    if (!descendantIds.includes(record.salesperson_id)) {
-      throw createError('无权操作此病例', 403);
-    }
-  }
+  assertOperatePermission(record, currentUser);
 
   const newStatus = STATUS_TRANSITIONS[record.status]?.['visited'];
   if (!newStatus) {
@@ -581,7 +594,7 @@ async function markVisited(recordId, currentUser) {
  * @param {Object} currentUser   - 当前登录业务员
  */
 async function markFollowUp(recordId, followUpTime, notes, currentUser) {
-  const { userId, role } = currentUser;
+  const { userId } = currentUser;
 
   const rows = await query(
     'SELECT id, status, salesperson_id FROM medical_records WHERE id = ? AND deleted_at IS NULL',
@@ -590,12 +603,7 @@ async function markFollowUp(recordId, followUpTime, notes, currentUser) {
   if (rows.length === 0) throw createError('病例不存在', 404);
   const record = rows[0];
 
-  if (role !== 'super_admin') {
-    const descendantIds = await getDescendantIds(userId);
-    if (!descendantIds.includes(record.salesperson_id)) {
-      throw createError('无权操作此病例', 403);
-    }
-  }
+  assertOperatePermission(record, currentUser);
 
   const newStatus = STATUS_TRANSITIONS[record.status]?.['follow_up'];
   if (!newStatus) {
@@ -628,7 +636,7 @@ async function markFollowUp(recordId, followUpTime, notes, currentUser) {
  * @param {Object} currentUser - 当前登录业务员
  */
 async function markCompleted(recordId, currentUser) {
-  const { userId, role } = currentUser;
+  const { userId } = currentUser;
 
   const rows = await query(
     'SELECT id, status, salesperson_id FROM medical_records WHERE id = ? AND deleted_at IS NULL',
@@ -637,12 +645,7 @@ async function markCompleted(recordId, currentUser) {
   if (rows.length === 0) throw createError('病例不存在', 404);
   const record = rows[0];
 
-  if (role !== 'super_admin') {
-    const descendantIds = await getDescendantIds(userId);
-    if (!descendantIds.includes(record.salesperson_id)) {
-      throw createError('无权操作此病例', 403);
-    }
-  }
+  assertOperatePermission(record, currentUser);
 
   if (record.status === 'completed') {
     throw createError('病例已完诊', 400);
@@ -668,7 +671,7 @@ async function markCompleted(recordId, currentUser) {
  * @param {Object} currentUser - 当前登录业务员
  */
 async function supplementRecord(recordId, data, currentUser) {
-  const { userId, role } = currentUser;
+  const { userId } = currentUser;
 
   const rows = await query(
     'SELECT id, status, salesperson_id FROM medical_records WHERE id = ? AND deleted_at IS NULL',
@@ -677,12 +680,7 @@ async function supplementRecord(recordId, data, currentUser) {
   if (rows.length === 0) throw createError('病例不存在', 404);
   const record = rows[0];
 
-  if (role !== 'super_admin') {
-    const descendantIds = await getDescendantIds(userId);
-    if (!descendantIds.includes(record.salesperson_id)) {
-      throw createError('无权操作此病例', 403);
-    }
-  }
+  assertOperatePermission(record, currentUser);
 
   if (record.status !== 'incomplete') {
     throw createError('只有「资料不全」状态的病例才能补充资料', 400);

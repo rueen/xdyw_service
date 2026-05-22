@@ -42,13 +42,28 @@ function desensitizeName(name) {
 
 /**
  * 对病例记录进行脱敏处理（上级查看下级病例时使用）
+ * 规则：姓名/手机号/身份证脱敏，照片隐藏（置为 null）
  * @param {Object} record - 病例原始数据（已解密）
  * @returns {Object} 脱敏后的病例数据
  */
 function desensitizeRecord(record) {
   return {
     ...record,
-    patient_name:    desensitizeName(record.patient_name),
+    patient_phone:   desensitizePhone(record.patient_phone),
+    patient_id_card: desensitizeIdCard(record.patient_id_card),
+    photos:          null,
+  };
+}
+
+/**
+ * 医生查看病例时的脱敏处理
+ * 规则：手机号/身份证脱敏，姓名与照片保持原样
+ * @param {Object} record - 病例原始数据（已解密）
+ * @returns {Object} 脱敏后的病例数据
+ */
+function desensitizeRecordForDoctor(record) {
+  return {
+    ...record,
     patient_phone:   desensitizePhone(record.patient_phone),
     patient_id_card: desensitizeIdCard(record.patient_id_card),
   };
@@ -59,4 +74,5 @@ module.exports = {
   desensitizeIdCard,
   desensitizeName,
   desensitizeRecord,
+  desensitizeRecordForDoctor,
 };

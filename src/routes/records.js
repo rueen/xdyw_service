@@ -32,6 +32,7 @@ router.get(
     query('salespersonId').optional().isInt({ min: 1 }).withMessage('业务员ID格式错误'),
     query('createdAtStart').optional().isDate().withMessage('创建时间起始格式错误（YYYY-MM-DD）'),
     query('createdAtEnd').optional().isDate().withMessage('创建时间结束格式错误（YYYY-MM-DD）'),
+    query('paymentStatus').optional().isIn(['pending_payment', 'paid', 'refunded']).withMessage('付费状态值无效'),
   ],
   validate,
   recordController.getList
@@ -167,6 +168,42 @@ router.post(
   [param('id').isInt({ min: 1 })],
   validate,
   recordController.markCompleted
+);
+
+/**
+ * POST /records/:id/pay
+ * 标记已付费（待付费/已退费 -> 已付费）
+ */
+router.post(
+  '/:id/pay',
+  requireSalesperson,
+  [
+    param('id').isInt({ min: 1 }),
+    body('amount').notEmpty().withMessage('付款金额不能为空').isFloat({ gt: 0 }).withMessage('付款金额必须大于0'),
+    body('vouchers').optional().isArray({ max: 3 }).withMessage('凭证最多3张'),
+    body('vouchers.*').optional().isURL().withMessage('凭证必须为有效URL'),
+    body('notes').optional().isLength({ max: 200 }).withMessage('备注不能超过200字'),
+  ],
+  validate,
+  recordController.markPaid
+);
+
+/**
+ * POST /records/:id/refund
+ * 标记已退费（已付费 -> 已退费），同时自动将病例标记为已完诊
+ */
+router.post(
+  '/:id/refund',
+  requireSalesperson,
+  [
+    param('id').isInt({ min: 1 }),
+    body('amount').optional().isFloat({ gt: 0 }).withMessage('退款金额必须大于0'),
+    body('vouchers').optional().isArray({ max: 3 }).withMessage('凭证最多3张'),
+    body('vouchers.*').optional().isURL().withMessage('凭证必须为有效URL'),
+    body('notes').optional().isLength({ max: 200 }).withMessage('备注不能超过200字'),
+  ],
+  validate,
+  recordController.markRefunded
 );
 
 /**

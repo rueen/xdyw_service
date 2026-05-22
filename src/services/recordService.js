@@ -156,7 +156,7 @@ function processRecords(records, currentSalespersonId, role, ownSalespersonIds) 
  */
 async function getRecordList(filters = {}, currentUser) {
   const {
-    patientName, patientPhone, patientIdCard, doctorId, salespersonId, status,
+    patientName, patientPhone, patientIdCard, doctorId, salespersonId, status, paymentStatus,
     createdAtStart, createdAtEnd,
     page = 1, pageSize = 10,
   } = filters;
@@ -219,6 +219,10 @@ async function getRecordList(filters = {}, currentUser) {
     conditions.push('mr.status = ?');
     params.push(status);
   }
+  if (paymentStatus) {
+    conditions.push('mr.payment_status = ?');
+    params.push(paymentStatus);
+  }
   if (createdAtStart) {
     conditions.push('mr.created_at >= ?');
     params.push(`${createdAtStart} 00:00:00`);
@@ -235,7 +239,7 @@ async function getRecordList(filters = {}, currentUser) {
   const rawList = await query(
     `SELECT mr.id, mr.patient_name, mr.patient_phone, mr.patient_id_card,
             mr.doctor_id, mr.salesperson_id, mr.description, mr.photos,
-            mr.status, mr.created_at, mr.updated_at,
+            mr.status, mr.payment_status, mr.created_at, mr.updated_at,
             d.name AS doctor_name,
             s.name AS salesperson_name
      FROM medical_records mr
@@ -298,7 +302,7 @@ async function getRecordById(recordId, currentUser) {
   const rows = await query(
     `SELECT mr.id, mr.patient_name, mr.patient_phone, mr.patient_id_card,
             mr.doctor_id, mr.salesperson_id, mr.description, mr.photos,
-            mr.status, mr.created_at, mr.updated_at,
+            mr.status, mr.payment_status, mr.created_at, mr.updated_at,
             d.name AS doctor_name,
             s.name AS salesperson_name
      FROM medical_records mr
@@ -345,8 +349,8 @@ async function getRecordById(recordId, currentUser) {
     : null;
 
   /** 获取操作日志 */
-  finalRecord.operations = await query(
-    `SELECT ro.id, ro.operation, ro.notes, ro.operator_type, ro.operator_id,
+  const rawOps = await query(
+    `SELECT ro.id, ro.operation, ro.notes, ro.extra_data, ro.operator_type, ro.operator_id,
             ro.created_at,
             CASE ro.operator_type
               WHEN 'salesperson' THEN u.name
@@ -359,6 +363,10 @@ async function getRecordById(recordId, currentUser) {
      ORDER BY ro.created_at ASC`,
     [recordId]
   );
+  finalRecord.operations = rawOps.map(op => ({
+    ...op,
+    extra_data: typeof op.extra_data === 'string' ? JSON.parse(op.extra_data) : (op.extra_data ?? null),
+  }));
 
   /** 获取复诊记录 */
   finalRecord.follow_ups = await query(
@@ -710,6 +718,94 @@ async function supplementRecord(recordId, data, currentUser) {
   });
 }
 
+
+/**
+ * 标记病例为已付费（待付费/已退费 -> 已付费）
+ * @param {number} recordId  - 病例ID
+ * @param {Object} currentUser - 当前登录用户
+ */
+/**
+ * @param {number} recordId  - 病例ID
+ * @param {Object} extraData - 附加信息 { amount, vouchers, notes }
+ * @param {Object} currentUser - 当前登录用户
+ */
+async function markPaid(recordId, extraData = {}, currentUser) {
+  const { userId } = currentUser;
+
+  const rows = await query(
+    'SELECT id, payment_status, salesperson_id FROM medical_records WHERE id = ? AND deleted_at IS NULL',
+    [recordId]
+  );
+  if (rows.length === 0) throw createError('病例不存在', 404);
+  const record = rows[0];
+
+  assertOperatePermission(record, currentUser);
+
+  if (record.payment_status === 'paid') {
+    throw createError('病例已是已付费状态', 400);
+  }
+
+  const extraDataJson = JSON.stringify({
+    amount:    extraData.amount    ?? null,
+    vouchers:  extraData.vouchers  ?? null,
+    notes:     extraData.notes     ?? null,
+  });
+
+  await transaction(async conn => {
+    await conn.execute(
+      "UPDATE medical_records SET payment_status = 'paid', updated_by = ? WHERE id = ?",
+      [userId, recordId]
+    );
+    await conn.execute(
+      `INSERT INTO record_operations (record_id, operation, operator_type, operator_id, extra_data)
+       VALUES (?, 'pay', 'salesperson', ?, ?)`,
+      [recordId, userId, extraDataJson]
+    );
+  });
+}
+
+/**
+ * 标记病例为已退费（已付费 -> 已退费），同时自动将病例状态置为已完诊
+ * 操作日志使用 'refund'，与手动完诊 'complete' 区分
+ * @param {number} recordId  - 病例ID
+ * @param {Object} extraData - 附加信息 { amount, vouchers, notes }
+ * @param {Object} currentUser - 当前登录用户
+ */
+async function markRefunded(recordId, extraData = {}, currentUser) {
+  const { userId } = currentUser;
+
+  const rows = await query(
+    'SELECT id, status, payment_status, salesperson_id FROM medical_records WHERE id = ? AND deleted_at IS NULL',
+    [recordId]
+  );
+  if (rows.length === 0) throw createError('病例不存在', 404);
+  const record = rows[0];
+
+  assertOperatePermission(record, currentUser);
+
+  if (record.payment_status !== 'paid') {
+    throw createError('只有「已付费」状态的病例才能退费', 400);
+  }
+
+  const extraDataJson = JSON.stringify({
+    amount:    extraData.amount    ?? null,
+    vouchers:  extraData.vouchers  ?? null,
+    notes:     extraData.notes     ?? null,
+  });
+
+  await transaction(async conn => {
+    await conn.execute(
+      "UPDATE medical_records SET payment_status = 'refunded', status = 'completed', updated_by = ? WHERE id = ?",
+      [userId, recordId]
+    );
+    await conn.execute(
+      `INSERT INTO record_operations (record_id, operation, operator_type, operator_id, extra_data)
+       VALUES (?, 'refund', 'salesperson', ?, ?)`,
+      [recordId, userId, extraDataJson]
+    );
+  });
+}
+
 module.exports = {
   getRecordList,
   getRecordById,
@@ -721,4 +817,6 @@ module.exports = {
   markFollowUp,
   markCompleted,
   supplementRecord,
+  markPaid,
+  markRefunded,
 };

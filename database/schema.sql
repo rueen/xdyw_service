@@ -87,16 +87,22 @@ CREATE TABLE IF NOT EXISTS `medical_records` (
     'pending_follow_up', -- 待复诊
     'completed'          -- 已完诊
   ) NOT NULL DEFAULT 'pending_review'                    COMMENT '病例状态',
+  `payment_status`  ENUM(
+    'pending_payment',   -- 待付费
+    'paid',              -- 已付费
+    'refunded'           -- 已退费
+  ) NOT NULL DEFAULT 'pending_payment'                   COMMENT '付费状态',
   `created_by`      INT          DEFAULT NULL            COMMENT '创建人ID',
   `updated_by`      INT          DEFAULT NULL            COMMENT '最后更新人ID',
   `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP                  COMMENT '创建时间',
   `updated_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted_at`      DATETIME     DEFAULT NULL            COMMENT '软删除时间，NULL表示未删除',
   PRIMARY KEY (`id`),
-  KEY `idx_doctor_id`     (`doctor_id`),
-  KEY `idx_salesperson_id`(`salesperson_id`),
-  KEY `idx_status`        (`status`),
-  KEY `idx_deleted_at`    (`deleted_at`),
+  KEY `idx_doctor_id`      (`doctor_id`),
+  KEY `idx_salesperson_id` (`salesperson_id`),
+  KEY `idx_status`         (`status`),
+  KEY `idx_payment_status` (`payment_status`),
+  KEY `idx_deleted_at`     (`deleted_at`),
   CONSTRAINT `fk_records_doctor`      FOREIGN KEY (`doctor_id`)      REFERENCES `doctors` (`id`),
   CONSTRAINT `fk_records_salesperson` FOREIGN KEY (`salesperson_id`) REFERENCES `users`   (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='病例表';
@@ -125,8 +131,9 @@ CREATE TABLE IF NOT EXISTS `record_follow_ups` (
 CREATE TABLE IF NOT EXISTS `record_operations` (
   `id`            INT          NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `record_id`     INT          NOT NULL                COMMENT '病例ID',
-  `operation`     VARCHAR(50)  NOT NULL                COMMENT '操作类型：create/update/review_suitable/review_unsuitable/review_incomplete/supplement/visited/follow_up/complete',
+  `operation`     VARCHAR(50)  NOT NULL                COMMENT '操作类型：create/update/review_suitable/review_unsuitable/review_incomplete/supplement/visited/follow_up/complete/pay/refund',
   `notes`         VARCHAR(500) DEFAULT NULL            COMMENT '操作备注（如资料不全时的医生备注）',
+  `extra_data`    JSON         DEFAULT NULL            COMMENT '操作附加数据（付费/退费时存储金额、凭证等）',
   `operator_type` ENUM('salesperson','doctor') NOT NULL COMMENT '操作人类型',
   `operator_id`   INT          NOT NULL                COMMENT '操作人ID',
   `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
@@ -188,3 +195,20 @@ ON DUPLICATE KEY UPDATE `config_value` = VALUES(`config_value`);
 INSERT INTO `users` (`name`, `phone`, `password`, `role`, `status`, `parent_id`) VALUES
   ('超级管理员', '13800000000', '$2a$12$ysuFzM3LAkVU1pRBZK0ceuwNLXTXV6Iok0iVEd.ff37LBs2SauOta', 'super_admin', 'normal', NULL)
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
+
+-- =====================================================
+-- 迁移：为已有数据库添加付费状态字段（新建库无需执行）
+-- =====================================================
+ALTER TABLE `medical_records`
+  ADD COLUMN `payment_status` ENUM('pending_payment','paid','refunded')
+    NOT NULL DEFAULT 'pending_payment'
+    COMMENT '付费状态'
+    AFTER `status`;
+ALTER TABLE `medical_records`
+  ADD INDEX `idx_payment_status` (`payment_status`);
+
+-- 迁移：为 record_operations 添加 extra_data 字段（新建库无需执行）
+ALTER TABLE `record_operations`
+  ADD COLUMN `extra_data` JSON DEFAULT NULL
+    COMMENT '操作附加数据（付费/退费时存储金额、凭证等）'
+    AFTER `notes`;

@@ -15,7 +15,7 @@ async function getList(req, res, next) {
   try {
     const {
       patientName, patientPhone, patientIdCard,
-      doctorId, salespersonId, status,
+      doctorId, salespersonId, status, paymentStatus,
       createdAtStart, createdAtEnd,
       page = 1, pageSize = 10,
     } = req.query;
@@ -26,6 +26,7 @@ async function getList(req, res, next) {
         doctorId:      doctorId      ? parseInt(doctorId)      : undefined,
         salespersonId: salespersonId ? parseInt(salespersonId) : undefined,
         status,
+        paymentStatus,
         createdAtStart,
         createdAtEnd,
         page:     parseInt(page),
@@ -157,6 +158,34 @@ async function markCompleted(req, res, next) {
 }
 
 /**
+ * 标记已付费（待付费/已退费 -> 已付费）
+ */
+async function markPaid(req, res, next) {
+  try {
+    const id = parseInt(req.params.id);
+    const { amount, vouchers, notes } = req.body;
+    await recordService.markPaid(id, { amount: parseFloat(amount), vouchers, notes }, req.user);
+    return success(res, null, '已标记为已付费');
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 标记已退费（已付费 -> 已退费），病例同步自动完诊
+ */
+async function markRefunded(req, res, next) {
+  try {
+    const id = parseInt(req.params.id);
+    const { amount, vouchers, notes } = req.body;
+    await recordService.markRefunded(id, { amount: amount ? parseFloat(amount) : undefined, vouchers, notes }, req.user);
+    return success(res, null, '已标记为已退费，病例已自动完诊');
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * 业务员补充资料（资料不全 -> 待判读）
  * body: { description?: string, photos?: string[] }
  */
@@ -174,4 +203,5 @@ async function supplement(req, res, next) {
 module.exports = {
   getList, getDetail, create, update, remove,
   review, markVisited, markFollowUp, markCompleted, supplement,
+  markPaid, markRefunded,
 };

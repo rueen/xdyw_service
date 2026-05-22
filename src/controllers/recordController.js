@@ -15,7 +15,9 @@ async function getList(req, res, next) {
   try {
     const {
       patientName, patientPhone, patientIdCard,
-      doctorId, salespersonId, status, page = 1, pageSize = 10,
+      doctorId, salespersonId, status,
+      createdAtStart, createdAtEnd,
+      page = 1, pageSize = 10,
     } = req.query;
 
     const { list, total } = await recordService.getRecordList(
@@ -24,6 +26,8 @@ async function getList(req, res, next) {
         doctorId:      doctorId      ? parseInt(doctorId)      : undefined,
         salespersonId: salespersonId ? parseInt(salespersonId) : undefined,
         status,
+        createdAtStart,
+        createdAtEnd,
         page:     parseInt(page),
         pageSize: parseInt(pageSize),
       },

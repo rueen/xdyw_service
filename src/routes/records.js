@@ -30,6 +30,8 @@ router.get(
     ]).withMessage('状态值无效'),
     query('doctorId').optional().isInt({ min: 1 }),
     query('salespersonId').optional().isInt({ min: 1 }).withMessage('业务员ID格式错误'),
+    query('createdAtStart').optional().isDate().withMessage('创建时间起始格式错误（YYYY-MM-DD）'),
+    query('createdAtEnd').optional().isDate().withMessage('创建时间结束格式错误（YYYY-MM-DD）'),
   ],
   validate,
   recordController.getList

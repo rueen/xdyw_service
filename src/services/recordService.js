@@ -132,6 +132,8 @@ function processRecords(records, currentSalespersonId, role, ownSalespersonIds) 
  * @param {number} [filters.doctorId]      - 医生ID
  * @param {number} [filters.salespersonId] - 业务员ID（仅超级管理员可用；普通业务员只能看自己可见范围内的）
  * @param {string} [filters.status]        - 病例状态
+ * @param {string} [filters.createdAtStart] - 创建时间起始（YYYY-MM-DD，含）
+ * @param {string} [filters.createdAtEnd]   - 创建时间结束（YYYY-MM-DD，含）
  * @param {number} [filters.page=1]
  * @param {number} [filters.pageSize=10]
  * @param {Object} currentUser - 当前登录用户 { userId, userType, role }
@@ -140,6 +142,7 @@ function processRecords(records, currentSalespersonId, role, ownSalespersonIds) 
 async function getRecordList(filters = {}, currentUser) {
   const {
     patientName, patientPhone, patientIdCard, doctorId, salespersonId, status,
+    createdAtStart, createdAtEnd,
     page = 1, pageSize = 10,
   } = filters;
   const { userId, userType, role } = currentUser;
@@ -200,6 +203,14 @@ async function getRecordList(filters = {}, currentUser) {
   if (status) {
     conditions.push('mr.status = ?');
     params.push(status);
+  }
+  if (createdAtStart) {
+    conditions.push('mr.created_at >= ?');
+    params.push(`${createdAtStart} 00:00:00`);
+  }
+  if (createdAtEnd) {
+    conditions.push('mr.created_at <= ?');
+    params.push(`${createdAtEnd} 23:59:59`);
   }
 
   const where = `WHERE ${conditions.join(' AND ')}`;

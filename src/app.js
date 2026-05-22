@@ -110,7 +110,7 @@ async function bootstrap() {
 
     /** 监听端口 */
     app.listen(config.port, () => {
-      logger.info(`赛百诺病例管理系统已启动`);
+      logger.info(`鑫达医委病例管理系统已启动`);
       logger.info(`服务地址: http://localhost:${config.port}`);
       logger.info(`运行环境: ${config.nodeEnv}`);
       logger.info(`API 根路径: http://localhost:${config.port}/api/v1`);

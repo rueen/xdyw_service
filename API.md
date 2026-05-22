@@ -1,4 +1,4 @@
-# 赛百诺病例管理系统 - API 接口文档
+# 鑫达医委病例管理系统 - API 接口文档
 
 **Base URL**: `http://localhost:3000/api/v1`
 

@@ -1,7 +1,7 @@
 {
   "name": "saibainuo_service",
   "version": "1.0.0",
-  "description": "赛百诺病例管理系统 - 服务端",
+  "description": "鑫达医委病例管理系统 - 服务端",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",

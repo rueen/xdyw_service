@@ -16,15 +16,17 @@ async function getList(req, res, next) {
   try {
     const {
       keyword, name, phone,
-      province_code, city_code, district_code,
-      parent_id, status,
+      provinceCode, cityCode, districtCode,
+      parentId, status,
       page = 1, pageSize = 10,
     } = req.query;
 
     const { list, total } = await salespersonService.getSalespersonList({
       keyword, name, phone,
-      province_code, city_code, district_code,
-      parent_id: parent_id ? parseInt(parent_id) : undefined,
+      province_code: provinceCode,
+      city_code:     cityCode,
+      district_code: districtCode,
+      parent_id: parentId ? parseInt(parentId) : undefined,
       status,
       page:     parseInt(page),
       pageSize: parseInt(pageSize),

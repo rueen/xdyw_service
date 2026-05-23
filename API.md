@@ -227,9 +227,9 @@ Content-Type: application/json
 |---|---|---|---|
 | name | string | - | 姓名（模糊查询） |
 | phone | string | - | 手机号（模糊查询） |
-| province | string | - | 省（精确） |
-| city | string | - | 市（精确） |
-| district | string | - | 区（精确） |
+| provinceCode | string | - | 省级区划代码（精确） |
+| cityCode | string | - | 市级区划代码（精确） |
+| districtCode | string | - | 区级区划代码（精确） |
 | parentId | number | - | 上级业务员ID |
 | status | string | - | 状态：`normal` / `disabled` |
 | page | number | - | 页码，默认 1 |

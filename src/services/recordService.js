@@ -314,11 +314,14 @@ async function getRecordById(recordId, currentUser) {
     `SELECT mr.id, mr.patient_name, mr.patient_phone, mr.patient_id_card,
             mr.doctor_id, mr.salesperson_id, mr.description, mr.photos,
             mr.status, mr.payment_status, mr.created_at, mr.updated_at,
-            d.name AS doctor_name,
-            s.name AS salesperson_name
+            d.name  AS doctor_name,
+            s.name  AS salesperson_name,
+            s.institution_id,
+            i.name  AS institution_name
      FROM medical_records mr
-     LEFT JOIN doctors d ON mr.doctor_id = d.id
-     LEFT JOIN users   s ON mr.salesperson_id = s.id
+     LEFT JOIN doctors      d ON mr.doctor_id      = d.id
+     LEFT JOIN users        s ON mr.salesperson_id  = s.id
+     LEFT JOIN institutions i ON s.institution_id   = i.id
      WHERE mr.id = ? AND mr.deleted_at IS NULL`,
     [recordId]
   );

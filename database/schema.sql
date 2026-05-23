@@ -228,5 +228,5 @@ ON DUPLICATE KEY UPDATE `days` = VALUES(`days`);
 -- 插入超级管理员账号（密码: Admin@123456，bcrypt加密，登录后请立即修改）
 -- bcrypt hash of 'Admin@123456' with saltRounds=12
 INSERT INTO `users` (`name`, `phone`, `password`, `role`, `status`, `parent_id`) VALUES
-  ('超级管理员', '13800000000', '$2a$12$ysuFzM3LAkVU1pRBZK0ceuwNLXTXV6Iok0iVEd.ff37LBs2SauOta', 'super_admin', 'normal', NULL)
+  ('超级管理员', '15382338670', '$2a$12$ysuFzM3LAkVU1pRBZK0ceuwNLXTXV6Iok0iVEd.ff37LBs2SauOta', 'super_admin', 'normal', NULL)
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);

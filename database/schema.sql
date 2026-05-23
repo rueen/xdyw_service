@@ -1,12 +1,12 @@
 -- =====================================================
 -- 鑫达医委病例管理系统 - 数据库初始化脚本
--- 数据库: saibainuo
+-- 数据库: xdyw
 -- 字符集: utf8mb4
 -- =====================================================
 
 -- 创建并选择数据库
-CREATE DATABASE IF NOT EXISTS saibainuo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE saibainuo;
+CREATE DATABASE IF NOT EXISTS xdyw CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE xdyw;
 
 -- =====================================================
 -- 0. 机构表 (institutions)
@@ -230,42 +230,3 @@ ON DUPLICATE KEY UPDATE `days` = VALUES(`days`);
 INSERT INTO `users` (`name`, `phone`, `password`, `role`, `status`, `parent_id`) VALUES
   ('超级管理员', '13800000000', '$2a$12$ysuFzM3LAkVU1pRBZK0ceuwNLXTXV6Iok0iVEd.ff37LBs2SauOta', 'super_admin', 'normal', NULL)
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
-
--- =====================================================
--- 迁移：为已有数据库添加付费状态字段（新建库无需执行）
--- =====================================================
-ALTER TABLE `medical_records`
-  ADD COLUMN `payment_status` ENUM('pending_payment','paid','refunded')
-    NOT NULL DEFAULT 'pending_payment'
-    COMMENT '付费状态'
-    AFTER `status`;
-ALTER TABLE `medical_records`
-  ADD INDEX `idx_payment_status` (`payment_status`);
-
--- 迁移：为 record_operations 添加 extra_data 字段（新建库无需执行）
-ALTER TABLE `record_operations`
-  ADD COLUMN `extra_data` JSON DEFAULT NULL
-    COMMENT '操作附加数据（付费/退费时存储金额、凭证等）'
-    AFTER `notes`;
-
--- =====================================================
--- 迁移：新增机构表及业务员所属机构字段（新建库无需执行）
--- =====================================================
-CREATE TABLE IF NOT EXISTS `institutions` (
-  `id`         INT          NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `name`       VARCHAR(100) NOT NULL                COMMENT '机构名称',
-  `status`     ENUM('normal','disabled') NOT NULL DEFAULT 'normal' COMMENT '状态：normal正常 disabled停用',
-  `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP                  COMMENT '创建时间',
-  `updated_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `deleted_at` DATETIME     DEFAULT NULL            COMMENT '软删除时间，NULL表示未删除',
-  PRIMARY KEY (`id`),
-  KEY `idx_status`     (`status`),
-  KEY `idx_deleted_at` (`deleted_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='机构表';
-
-ALTER TABLE `users`
-  ADD COLUMN `institution_id` INT DEFAULT NULL
-    COMMENT '所属机构ID'
-    AFTER `district_name`;
-ALTER TABLE `users`
-  ADD INDEX `idx_institution_id` (`institution_id`);

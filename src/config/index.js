@@ -1,3 +1,11 @@
+/*
+ * @Author: diaochan diaochan@seatent.com
+ * @Date: 2026-05-10 15:50:40
+ * @LastEditors: diaochan diaochan@seatent.com
+ * @LastEditTime: 2026-05-23 16:55:19
+ * @FilePath: /xdyw_service/src/config/index.js
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 /**
  * @fileoverview 全局配置模块
  * @description 统一管理所有环境变量和应用配置，提供类型安全的配置访问
@@ -32,7 +40,7 @@ const config = {
     port:     parseInt(process.env.DB_PORT, 10) || 3306,
     user:     process.env.DB_USER     || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME     || 'saibainuo',
+    database: process.env.DB_NAME     || 'xdyw',
     /** 连接池最大连接数 */
     connectionLimit: 10,
     /** 时区设置为东八区 */
@@ -49,8 +57,8 @@ const config = {
 
   /** AES-256-CBC 加密配置（用于手机号、身份证等敏感字段） */
   aes: {
-    key: process.env.AES_SECRET_KEY || 'saibainuo_aes_key_32chars_202401',
-    iv:  process.env.AES_IV         || 'saibainuo_iv_16c',
+    key: process.env.AES_SECRET_KEY || 'xdyw_aes_key_32chars_202401',
+    iv:  process.env.AES_IV         || 'xdyw_iv_16c',
   },
 
   /** 允许跨域的来源列表 */

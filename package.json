@@ -1,5 +1,5 @@
 {
-  "name": "saibainuo_service",
+  "name": "xdyw_service",
   "version": "1.0.0",
   "description": "鑫达医委病例管理系统 - 服务端",
   "main": "src/app.js",

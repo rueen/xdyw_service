@@ -43,7 +43,7 @@ async function updateConfig(key, value, operatorId) {
   if (!existing) throw createError('配置项不存在', 404);
 
   /** 数值类配置校验 */
-  const numericKeys = ['follow_up_interval_days', 'follow_up_reminder_days'];
+  const numericKeys = ['follow_up_interval_days'];
   if (numericKeys.includes(key)) {
     const num = parseInt(value, 10);
     if (isNaN(num) || num <= 0) {

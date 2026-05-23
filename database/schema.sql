@@ -186,6 +186,7 @@ CREATE TABLE IF NOT EXISTS `notifications` (
   `salesperson_id` INT          NOT NULL                COMMENT '接收通知的业务员ID',
   `record_id`      INT          NOT NULL                COMMENT '相关病例ID',
   `type`           VARCHAR(50)  NOT NULL DEFAULT 'follow_up_reminder' COMMENT '通知类型',
+  `reminder_days`  INT          DEFAULT NULL             COMMENT '触发本条通知的提醒阈值天数（用于按阈值去重）',
   `content`        VARCHAR(500) NOT NULL                COMMENT '通知内容',
   `is_read`        TINYINT(1)   NOT NULL DEFAULT 0      COMMENT '是否已读：0未读 1已读',
   `created_at`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -199,14 +200,30 @@ CREATE TABLE IF NOT EXISTS `notifications` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知表';
 
 -- =====================================================
+-- 8. 复诊提醒天数配置表 (follow_up_reminder_configs)
+-- 说明: 支持配置多个提醒阈值天数，每条为一个独立阈值（如 7、3、1 天）
+--       调度器按阈值从大到小依次匹配窗口，每个阈值每轮复诊周期只发一次通知
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `follow_up_reminder_configs` (
+  `id`         INT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `days`       INT      NOT NULL                COMMENT '提醒阈值天数（距复诊日期不足该天数时触发）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_days` (`days`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='复诊提醒天数配置表';
+
+-- =====================================================
 -- 初始化数据
 -- =====================================================
 
 -- 插入默认系统配置
 INSERT INTO `system_configs` (`config_key`, `config_value`, `description`) VALUES
-  ('follow_up_interval_days', '60', '默认复诊间隔天数（2个月）'),
-  ('follow_up_reminder_days', '7',  '复诊到期提前提醒天数')
+  ('follow_up_interval_days', '60', '默认复诊间隔天数（2个月）')
 ON DUPLICATE KEY UPDATE `config_value` = VALUES(`config_value`);
+
+-- 插入默认复诊提醒阈值（7天前提醒一次）
+INSERT INTO `follow_up_reminder_configs` (`days`) VALUES (7)
+ON DUPLICATE KEY UPDATE `days` = VALUES(`days`);
 
 -- 插入超级管理员账号（密码: Admin@123456，bcrypt加密，登录后请立即修改）
 -- bcrypt hash of 'Admin@123456' with saltRounds=12

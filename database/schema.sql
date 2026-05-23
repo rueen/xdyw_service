@@ -9,6 +9,22 @@ CREATE DATABASE IF NOT EXISTS saibainuo CHARACTER SET utf8mb4 COLLATE utf8mb4_un
 USE saibainuo;
 
 -- =====================================================
+-- 0. 机构表 (institutions)
+-- 说明: 业务员所属机构，与 users 表通过 institution_id 关联
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `institutions` (
+  `id`         INT          NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name`       VARCHAR(100) NOT NULL                COMMENT '机构名称',
+  `status`     ENUM('normal','disabled') NOT NULL DEFAULT 'normal' COMMENT '状态：normal正常 disabled停用',
+  `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP                  COMMENT '创建时间',
+  `updated_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted_at` DATETIME     DEFAULT NULL            COMMENT '软删除时间，NULL表示未删除',
+  PRIMARY KEY (`id`),
+  KEY `idx_status`     (`status`),
+  KEY `idx_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='机构表';
+
+-- =====================================================
 -- 1. 业务员表 (users)
 -- 说明: 超级管理员 parent_id 为 NULL，role 为 super_admin
 -- =====================================================
@@ -23,6 +39,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `city_name`     VARCHAR(50)  DEFAULT NULL            COMMENT '市名称',
   `district_code` VARCHAR(20)  DEFAULT NULL            COMMENT '区级行政区划代码',
   `district_name` VARCHAR(50)  DEFAULT NULL            COMMENT '区名称',
+  `institution_id` INT         DEFAULT NULL            COMMENT '所属机构ID',
   `parent_id`   INT          DEFAULT NULL            COMMENT '上级业务员ID，NULL表示超级管理员',
   `role`        ENUM('super_admin','salesperson') NOT NULL DEFAULT 'salesperson' COMMENT '角色',
   `status`      ENUM('normal','disabled')         NOT NULL DEFAULT 'normal'      COMMENT '状态：normal正常 disabled停用',
@@ -37,10 +54,11 @@ CREATE TABLE IF NOT EXISTS `users` (
    * 软删除后记录仍保留在表中，相同手机号重新注册时会触发唯一约束冲突。
    * 唯一性由应用层（isPhoneExists 过滤 deleted_at IS NULL）保证。
    */
-  KEY `idx_phone`      (`phone`),
-  KEY `idx_parent_id`  (`parent_id`),
-  KEY `idx_status`     (`status`),
-  KEY `idx_deleted_at` (`deleted_at`),
+  KEY `idx_phone`          (`phone`),
+  KEY `idx_institution_id` (`institution_id`),
+  KEY `idx_parent_id`      (`parent_id`),
+  KEY `idx_status`         (`status`),
+  KEY `idx_deleted_at`     (`deleted_at`),
   CONSTRAINT `fk_users_parent` FOREIGN KEY (`parent_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='业务员表';
 
@@ -212,3 +230,25 @@ ALTER TABLE `record_operations`
   ADD COLUMN `extra_data` JSON DEFAULT NULL
     COMMENT '操作附加数据（付费/退费时存储金额、凭证等）'
     AFTER `notes`;
+
+-- =====================================================
+-- 迁移：新增机构表及业务员所属机构字段（新建库无需执行）
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `institutions` (
+  `id`         INT          NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name`       VARCHAR(100) NOT NULL                COMMENT '机构名称',
+  `status`     ENUM('normal','disabled') NOT NULL DEFAULT 'normal' COMMENT '状态：normal正常 disabled停用',
+  `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP                  COMMENT '创建时间',
+  `updated_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted_at` DATETIME     DEFAULT NULL            COMMENT '软删除时间，NULL表示未删除',
+  PRIMARY KEY (`id`),
+  KEY `idx_status`     (`status`),
+  KEY `idx_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='机构表';
+
+ALTER TABLE `users`
+  ADD COLUMN `institution_id` INT DEFAULT NULL
+    COMMENT '所属机构ID'
+    AFTER `district_name`;
+ALTER TABLE `users`
+  ADD INDEX `idx_institution_id` (`institution_id`);

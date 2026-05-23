@@ -15,7 +15,7 @@ async function getList(req, res, next) {
   try {
     const {
       patientName, patientPhone, patientIdCard,
-      doctorId, salespersonId, status, paymentStatus,
+      doctorId, salespersonId, institutionId, status, paymentStatus,
       createdAtStart, createdAtEnd,
       page = 1, pageSize = 10,
     } = req.query;
@@ -25,6 +25,7 @@ async function getList(req, res, next) {
         patientName, patientPhone, patientIdCard,
         doctorId:      doctorId      ? parseInt(doctorId)      : undefined,
         salespersonId: salespersonId ? parseInt(salespersonId) : undefined,
+        institutionId: institutionId ? parseInt(institutionId) : undefined,
         status,
         paymentStatus,
         createdAtStart,

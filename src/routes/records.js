@@ -33,6 +33,7 @@ router.get(
     query('createdAtStart').optional().isDate().withMessage('创建时间起始格式错误（YYYY-MM-DD）'),
     query('createdAtEnd').optional().isDate().withMessage('创建时间结束格式错误（YYYY-MM-DD）'),
     query('paymentStatus').optional().isIn(['pending_payment', 'paid', 'refunded']).withMessage('付费状态值无效'),
+    query('institutionId').optional().isInt({ min: 1 }).withMessage('机构ID格式错误'),
   ],
   validate,
   recordController.getList

@@ -16,6 +16,7 @@ const statisticsRoutes   = require('./statistics');
 const configRoutes       = require('./configs');
 const notificationRoutes = require('./notifications');
 const uploadRoutes       = require('./upload');
+const institutionRoutes  = require('./institutions');
 
 router.use('/auth',          authRoutes);
 router.use('/salespersons',  salespersonRoutes);
@@ -25,5 +26,6 @@ router.use('/statistics',    statisticsRoutes);
 router.use('/configs',       configRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/upload',        uploadRoutes);
+router.use('/institutions',  institutionRoutes);
 
 module.exports = router;

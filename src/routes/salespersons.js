@@ -31,6 +31,7 @@ router.get(
     query('cityCode').optional().isString(),
     query('districtCode').optional().isString(),
     query('parentId').optional().isInt({ min: 1 }),
+    query('institutionId').optional().isInt({ min: 1 }).withMessage('机构ID格式错误'),
   ],
   validate,
   salespersonController.getList
@@ -77,6 +78,7 @@ router.post(
     body('city_name').optional().isString().isLength({ max: 50 }),
     body('district_code').optional().isString().isLength({ max: 20 }),
     body('district_name').optional().isString().isLength({ max: 50 }),
+    body('institutionId').optional().isInt({ min: 1 }).withMessage('机构ID格式错误'),
   ],
   validate,
   salespersonController.create
@@ -101,6 +103,7 @@ router.put(
     body('city_name').optional().isString().isLength({ max: 50 }),
     body('district_code').optional().isString().isLength({ max: 20 }),
     body('district_name').optional().isString().isLength({ max: 50 }),
+    body('institutionId').optional().isInt({ min: 1 }).withMessage('机构ID格式错误'),
   ],
   validate,
   salespersonController.update

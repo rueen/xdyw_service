@@ -149,6 +149,7 @@ function processRecords(records, currentSalespersonId, role, ownSalespersonIds) 
  * @param {string} [filters.status]        - 病例状态
  * @param {string} [filters.createdAtStart] - 创建时间起始（YYYY-MM-DD，含）
  * @param {string} [filters.createdAtEnd]   - 创建时间结束（YYYY-MM-DD，含）
+ * @param {number} [filters.institutionId]  - 按录入业务员所属机构ID筛选
  * @param {number} [filters.page=1]
  * @param {number} [filters.pageSize=10]
  * @param {Object} currentUser - 当前登录用户 { userId, userType, role }
@@ -157,7 +158,7 @@ function processRecords(records, currentSalespersonId, role, ownSalespersonIds) 
 async function getRecordList(filters = {}, currentUser) {
   const {
     patientName, patientPhone, patientIdCard, doctorId, salespersonId, status, paymentStatus,
-    createdAtStart, createdAtEnd,
+    createdAtStart, createdAtEnd, institutionId,
     page = 1, pageSize = 10,
   } = filters;
   const { userId, userType, role } = currentUser;
@@ -231,10 +232,20 @@ async function getRecordList(filters = {}, currentUser) {
     conditions.push('mr.created_at <= ?');
     params.push(`${createdAtEnd} 23:59:59`);
   }
+  if (institutionId) {
+    conditions.push('s.institution_id = ?');
+    params.push(institutionId);
+  }
 
   const where = `WHERE ${conditions.join(' AND ')}`;
   const offset = (page - 1) * pageSize;
   const intervalDays = await getFollowUpIntervalDays();
+
+  /**
+   * 当按机构筛选时，COUNT 查询也需要 JOIN users 表（因为 WHERE 中引用了 s.institution_id）。
+   * 其余情况不 JOIN，避免不必要的性能开销。
+   */
+  const countJoin = institutionId ? 'LEFT JOIN users s ON mr.salesperson_id = s.id' : '';
 
   const rawList = await query(
     `SELECT mr.id, mr.patient_name, mr.patient_phone, mr.patient_id_card,
@@ -252,7 +263,7 @@ async function getRecordList(filters = {}, currentUser) {
   );
 
   const countResult = await query(
-    `SELECT COUNT(*) AS total FROM medical_records mr ${where}`,
+    `SELECT COUNT(*) AS total FROM medical_records mr ${countJoin} ${where}`,
     [...params]
   );
 

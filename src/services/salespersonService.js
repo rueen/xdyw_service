@@ -57,21 +57,22 @@ async function isPhoneExists(phone, excludeId = null) {
  * @param {string} [filters.keyword]       - 关键词（同时模糊匹配姓名和手机号）
  * @param {string} [filters.name]          - 姓名（模糊查询）
  * @param {string} [filters.phone]         - 手机号（模糊查询）
- * @param {string} [filters.province_code] - 省级区划代码（精确匹配）
- * @param {string} [filters.city_code]     - 市级区划代码（精确匹配）
- * @param {string} [filters.district_code] - 区级区划代码（精确匹配）
- * @param {number} [filters.parent_id]     - 上级业务员ID
- * @param {string} [filters.status]        - 状态
- * @param {number} [filters.page=1]        - 页码
- * @param {number} [filters.pageSize=10]   - 每页条数
- * @param {Object} [filters.currentUser]   - 当前登录用户（用于数据权限过滤）
+ * @param {string} [filters.province_code]  - 省级区划代码（精确匹配）
+ * @param {string} [filters.city_code]      - 市级区划代码（精确匹配）
+ * @param {string} [filters.district_code]  - 区级区划代码（精确匹配）
+ * @param {number} [filters.institution_id] - 所属机构ID（精确匹配）
+ * @param {number} [filters.parent_id]      - 上级业务员ID
+ * @param {string} [filters.status]         - 状态
+ * @param {number} [filters.page=1]         - 页码
+ * @param {number} [filters.pageSize=10]    - 每页条数
+ * @param {Object} [filters.currentUser]    - 当前登录用户（用于数据权限过滤）
  * @returns {Promise<{list: Array, total: number}>}
  */
 async function getSalespersonList(filters = {}) {
   const {
     keyword, name, phone,
     province_code, city_code, district_code,
-    parent_id, status,
+    institution_id, parent_id, status,
     page = 1, pageSize = 10,
     currentUser,
   } = filters;
@@ -104,11 +105,12 @@ async function getSalespersonList(filters = {}) {
   }
 
   /** 使用区划代码精确筛选，避免同名区县的歧义 */
-  if (province_code) { conditions.push('u.province_code = ?'); params.push(province_code); }
-  if (city_code)     { conditions.push('u.city_code = ?');     params.push(city_code); }
-  if (district_code) { conditions.push('u.district_code = ?'); params.push(district_code); }
-  if (parent_id)     { conditions.push('u.parent_id = ?');     params.push(parent_id); }
-  if (status)        { conditions.push('u.status = ?');        params.push(status); }
+  if (province_code)  { conditions.push('u.province_code = ?');  params.push(province_code); }
+  if (city_code)      { conditions.push('u.city_code = ?');      params.push(city_code); }
+  if (district_code)  { conditions.push('u.district_code = ?');  params.push(district_code); }
+  if (institution_id) { conditions.push('u.institution_id = ?'); params.push(institution_id); }
+  if (parent_id)      { conditions.push('u.parent_id = ?');      params.push(parent_id); }
+  if (status)         { conditions.push('u.status = ?');         params.push(status); }
 
   const where = `WHERE ${conditions.join(' AND ')}`;
   const offset = (page - 1) * pageSize;
@@ -120,10 +122,13 @@ async function getSalespersonList(filters = {}) {
               u.province_code, u.province_name,
               u.city_code,     u.city_name,
               u.district_code, u.district_name,
+              u.institution_id,
               u.role, u.status, u.parent_id, u.created_at, u.updated_at,
-              p.name AS parent_name
+              p.name  AS parent_name,
+              i.name  AS institution_name
        FROM users u
-       LEFT JOIN users p ON u.parent_id = p.id
+       LEFT JOIN users        p ON u.parent_id      = p.id
+       LEFT JOIN institutions i ON u.institution_id = i.id
        ${where}
        ORDER BY u.created_at DESC
        LIMIT ? OFFSET ?`,
@@ -146,10 +151,13 @@ async function getSalespersonById(id) {
             u.province_code, u.province_name,
             u.city_code,     u.city_name,
             u.district_code, u.district_name,
+            u.institution_id,
             u.role, u.status, u.parent_id, u.created_at, u.updated_at,
-            p.name AS parent_name
+            p.name AS parent_name,
+            i.name AS institution_name
      FROM users u
-     LEFT JOIN users p ON u.parent_id = p.id
+     LEFT JOIN users        p ON u.parent_id      = p.id
+     LEFT JOIN institutions i ON u.institution_id = i.id
      WHERE u.id = ? AND u.deleted_at IS NULL`,
     [id]
   );
@@ -164,13 +172,14 @@ async function getSalespersonById(id) {
  * @param {string} data.phone          - 手机号
  * @param {string} data.password       - 明文密码
  * @param {number} [data.parent_id]    - 上级业务员ID
- * @param {string} [data.province_code] - 省级区划代码
- * @param {string} [data.province_name] - 省名称
- * @param {string} [data.city_code]    - 市级区划代码
- * @param {string} [data.city_name]    - 市名称
- * @param {string} [data.district_code] - 区级区划代码
- * @param {string} [data.district_name] - 区名称
- * @param {number} operatorId          - 操作人ID
+ * @param {string} [data.province_code]  - 省级区划代码
+ * @param {string} [data.province_name]  - 省名称
+ * @param {string} [data.city_code]      - 市级区划代码
+ * @param {string} [data.city_name]      - 市名称
+ * @param {string} [data.district_code]  - 区级区划代码
+ * @param {string} [data.district_name]  - 区名称
+ * @param {number} [data.institution_id] - 所属机构ID
+ * @param {number} operatorId            - 操作人ID
  * @returns {Promise<{id: number}>}
  */
 async function createSalesperson(data, operatorId) {
@@ -180,6 +189,7 @@ async function createSalesperson(data, operatorId) {
     province_code, province_name,
     city_code, city_name,
     district_code, district_name,
+    institution_id,
   } = data;
 
   /** 检查未删除的记录中是否已存在该手机号 */
@@ -215,15 +225,17 @@ async function createSalesperson(data, operatorId) {
          province_code = ?, province_name = ?,
          city_code = ?, city_name = ?,
          district_code = ?, district_name = ?,
+         institution_id = ?,
          parent_id = ?, role = 'salesperson', status = 'normal',
          deleted_at = NULL, updated_by = ?, created_by = ?
        WHERE id = ?`,
       [
         name, hashedPassword,
-        province_code || null, province_name || null,
-        city_code     || null, city_name     || null,
-        district_code || null, district_name || null,
-        parent_id     || null,
+        province_code  || null, province_name  || null,
+        city_code      || null, city_name      || null,
+        district_code  || null, district_name  || null,
+        institution_id || null,
+        parent_id      || null,
         operatorId, operatorId,
         deleted[0].id,
       ]
@@ -238,14 +250,16 @@ async function createSalesperson(data, operatorId) {
         province_code, province_name,
         city_code, city_name,
         district_code, district_name,
+        institution_id,
         parent_id, role, status, created_by, updated_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'salesperson', 'normal', ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'salesperson', 'normal', ?, ?)`,
     [
       name, phone, hashedPassword,
-      province_code || null, province_name || null,
-      city_code     || null, city_name     || null,
-      district_code || null, district_name || null,
-      parent_id     || null,
+      province_code  || null, province_name  || null,
+      city_code      || null, city_name      || null,
+      district_code  || null, district_name  || null,
+      institution_id || null,
+      parent_id      || null,
       operatorId, operatorId,
     ]
   );
@@ -269,6 +283,7 @@ async function updateSalesperson(id, data, operatorId) {
     province_code, province_name,
     city_code, city_name,
     district_code, district_name,
+    institution_id,
   } = data;
 
   if (phone && phone !== existing.phone) {
@@ -290,12 +305,13 @@ async function updateSalesperson(id, data, operatorId) {
   if (parent_id !== undefined) { fields.push('parent_id = ?'); params.push(parent_id || null); }
 
   /** 省市区 code 和 name 成对更新 */
-  if (province_code !== undefined) { fields.push('province_code = ?'); params.push(province_code || null); }
-  if (province_name !== undefined) { fields.push('province_name = ?'); params.push(province_name || null); }
-  if (city_code !== undefined)     { fields.push('city_code = ?');     params.push(city_code     || null); }
-  if (city_name !== undefined)     { fields.push('city_name = ?');     params.push(city_name     || null); }
-  if (district_code !== undefined) { fields.push('district_code = ?'); params.push(district_code || null); }
-  if (district_name !== undefined) { fields.push('district_name = ?'); params.push(district_name || null); }
+  if (province_code !== undefined)  { fields.push('province_code = ?');  params.push(province_code  || null); }
+  if (province_name !== undefined)  { fields.push('province_name = ?');  params.push(province_name  || null); }
+  if (city_code !== undefined)      { fields.push('city_code = ?');      params.push(city_code      || null); }
+  if (city_name !== undefined)      { fields.push('city_name = ?');      params.push(city_name      || null); }
+  if (district_code !== undefined)  { fields.push('district_code = ?');  params.push(district_code  || null); }
+  if (district_name !== undefined)  { fields.push('district_name = ?');  params.push(district_name  || null); }
+  if (institution_id !== undefined) { fields.push('institution_id = ?'); params.push(institution_id || null); }
 
   if (password) {
     const hashedPassword = await bcrypt.hash(password, config.bcryptSaltRounds);

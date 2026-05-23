@@ -17,16 +17,17 @@ async function getList(req, res, next) {
     const {
       keyword, name, phone,
       provinceCode, cityCode, districtCode,
-      parentId, status,
+      parentId, institutionId, status,
       page = 1, pageSize = 10,
     } = req.query;
 
     const { list, total } = await salespersonService.getSalespersonList({
       keyword, name, phone,
-      province_code: provinceCode,
-      city_code:     cityCode,
-      district_code: districtCode,
-      parent_id: parentId ? parseInt(parentId) : undefined,
+      province_code:  provinceCode,
+      city_code:      cityCode,
+      district_code:  districtCode,
+      parent_id:      parentId      ? parseInt(parentId)      : undefined,
+      institution_id: institutionId ? parseInt(institutionId) : undefined,
       status,
       page:     parseInt(page),
       pageSize: parseInt(pageSize),
@@ -65,6 +66,7 @@ async function create(req, res, next) {
       province_code, province_name,
       city_code, city_name,
       district_code, district_name,
+      institutionId,
     } = req.body;
     const operatorId = req.user.userId;
 
@@ -85,6 +87,7 @@ async function create(req, res, next) {
         province_code, province_name,
         city_code, city_name,
         district_code, district_name,
+        institution_id: institutionId ? parseInt(institutionId) : undefined,
       },
       operatorId
     );
@@ -101,7 +104,12 @@ async function update(req, res, next) {
   try {
     const id = parseInt(req.params.id);
     const operatorId = req.user.userId;
-    await salespersonService.updateSalesperson(id, req.body, operatorId);
+    const { institutionId, ...rest } = req.body;
+    const data = {
+      ...rest,
+      ...(institutionId !== undefined && { institution_id: institutionId ? parseInt(institutionId) : null }),
+    };
+    await salespersonService.updateSalesperson(id, data, operatorId);
     return success(res, null, '业务员信息更新成功');
   } catch (error) {
     next(error);

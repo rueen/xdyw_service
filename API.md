@@ -213,6 +213,113 @@ Content-Type: application/json
 
 ---
 
+## 机构管理
+
+> GET 列表接口业务员权限即可调用（用于下拉选择等场景）；其余接口需要**超级管理员**权限。
+
+### 获取机构列表
+
+**GET** `/institutions`
+
+**Query 参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| name | string | - | 机构名称（模糊查询） |
+| status | string | - | 状态：`normal` / `disabled` |
+| page | number | - | 页码，默认 1 |
+| pageSize | number | - | 每页条数，默认 10，最大 100 |
+
+**成功响应**
+
+```json
+{
+  "code": 200,
+  "message": "获取成功",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "name": "北京总部机构",
+        "status": "normal",
+        "created_at": "2026-05-23T03:00:00.000Z",
+        "updated_at": "2026-05-23T03:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "total": 5,
+      "page": 1,
+      "pageSize": 10,
+      "totalPages": 1
+    }
+  }
+}
+```
+
+---
+
+### 新增机构
+
+**POST** `/institutions`
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| name | string | ✅ | 机构名称（最长100字，全局唯一） |
+| status | string | - | 状态：`normal`（默认）/ `disabled` |
+
+**成功响应**
+
+```json
+{
+  "code": 201,
+  "message": "机构创建成功",
+  "data": { "id": 1 }
+}
+```
+
+---
+
+### 修改机构
+
+**PUT** `/institutions/:id`
+
+**请求体**（所有字段均为可选）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| name | string | 机构名称（最长100字） |
+| status | string | 状态：`normal` / `disabled` |
+
+**成功响应**
+
+```json
+{
+  "code": 200,
+  "message": "机构信息更新成功",
+  "data": null
+}
+```
+
+---
+
+### 删除机构
+
+**DELETE** `/institutions/:id`
+
+> 软删除。若该机构下还有未解除关联的业务员，操作会失败。
+
+**成功响应**
+
+```json
+{
+  "code": 200,
+  "message": "机构删除成功",
+  "data": null
+}
+```
+
+---
+
 ## 业务员管理
 
 > 以下接口除「获取下级列表」外，均需要**超级管理员**权限。
@@ -230,6 +337,7 @@ Content-Type: application/json
 | provinceCode | string | - | 省级区划代码（精确） |
 | cityCode | string | - | 市级区划代码（精确） |
 | districtCode | string | - | 区级区划代码（精确） |
+| institutionId | number | - | 所属机构ID |
 | parentId | number | - | 上级业务员ID |
 | status | string | - | 状态：`normal` / `disabled` |
 | page | number | - | 页码，默认 1 |
@@ -247,9 +355,14 @@ Content-Type: application/json
         "id": 2,
         "name": "张业务",
         "phone": "13812345678",
-        "province": "广东省",
-        "city": "广州市",
-        "district": "天河区",
+        "province_code": "440000",
+        "province_name": "广东省",
+        "city_code": "440100",
+        "city_name": "广州市",
+        "district_code": "440106",
+        "district_name": "天河区",
+        "institution_id": 1,
+        "institution_name": "北京总部机构",
         "role": "salesperson",
         "status": "normal",
         "parent_id": 1,
@@ -315,10 +428,14 @@ Content-Type: application/json
 | name | string | ✅ | 姓名（最长50字） |
 | phone | string | ✅ | 手机号（全局唯一） |
 | password | string | ✅ | 密码（6-50位） |
-| province | string | - | 省 |
-| city | string | - | 市 |
-| district | string | - | 区 |
-| parentId | number | - | 上级业务员ID，不传则默认挂在超级管理员下 |
+| province_code | string | - | 省级区划代码 |
+| province_name | string | - | 省名称 |
+| city_code | string | - | 市级区划代码 |
+| city_name | string | - | 市名称 |
+| district_code | string | - | 区级区划代码 |
+| district_name | string | - | 区名称 |
+| institutionId | number | - | 所属机构ID |
+| parentId | number | - | 上级业务员ID，不传则默认挂在超级管理员下（字段名 `parent_id`） |
 
 **成功响应**
 
@@ -343,10 +460,14 @@ Content-Type: application/json
   "name": "新名字",
   "phone": "13700000002",
   "password": "NewPass@123",
-  "province": "北京市",
-  "city": "北京市",
-  "district": "朝阳区",
-  "parentId": 2,
+  "province_code": "110000",
+  "province_name": "北京市",
+  "city_code": "110100",
+  "city_name": "北京市",
+  "district_code": "110105",
+  "district_name": "朝阳区",
+  "parent_id": 2,
+  "institutionId": 1,
   "status": "disabled"
 }
 ```
@@ -511,7 +632,12 @@ Content-Type: application/json
 | patientPhone | string | 患者手机号（模糊，解密后匹配） |
 | patientIdCard | string | 患者身份证号（模糊，解密后匹配） |
 | doctorId | number | 指派医生ID |
+| salespersonId | number | 录入业务员ID |
+| institutionId | number | 按录入业务员所属机构ID筛选 |
 | status | string | 病例状态（见枚举值说明） |
+| paymentStatus | string | 付费状态：`pending_payment` / `paid` / `refunded` |
+| createdAtStart | string | 创建时间起始（YYYY-MM-DD，含） |
+| createdAtEnd | string | 创建时间结束（YYYY-MM-DD，含） |
 | page | number | 默认 1 |
 | pageSize | number | 默认 10 |
 

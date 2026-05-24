@@ -23,6 +23,12 @@ const logger                                 = require('./utils/logger');
 /** Express 实例 */
 const app = express();
 
+/**
+ * 信任反向代理（Nginx）传递的 X-Forwarded-For 头
+ * 生产环境通过 Nginx 代理时必须开启，否则 express-rate-limit 无法正确识别客户端 IP
+ */
+app.set('trust proxy', 1);
+
 // =====================================================
 // 安全相关中间件
 // =====================================================
